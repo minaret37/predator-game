@@ -1,0 +1,272 @@
+/* 
+ Author:       Tomoya Minamoto
+ Student ID:   b1014126
+ Class:        J
+ Created:      October 25, 2016
+ Language:     C
+
+ Function:     prey_array_num(int num)
+ Description:  adjust num
+
+ Function:     prey_map(int prey_copy_array[8][8])
+ Description:  print predator_copy_array.
+
+ Function:     prey_moveMap(int prey_a,int prey_b,int prey_num, int prey_copy_array[8][8])
+ Description:  create map for search route
+
+ Function:     prey_road(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8])
+ Description:  search and create route
+
+ Function:     prey_move(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8])
+ Description:  choose prey movement
+
+ Function:     Prey(int prey_copy_array[8][8], int *preyAction)
+ Description:  get the posithion and call various functuion  
+*/
+#define VERSION_1_2 1
+
+/*
+ * 必要なライブラリのロード
+ * (stdio.hおよびstdlib.h)
+ */
+#ifndef STDIO_H
+#define STDIO_H
+#include <stdio.h>
+#endif
+
+#ifndef STDLIB_H
+#define STDLIB_H
+#include <stdlib.h>
+#endif
+
+#ifndef STRING_H
+#define STRING_H
+#include <string.h>
+#endif
+
+#ifdef VERSION_1_2
+#ifndef PTHREAD_H
+#include <pthread.h>
+#endif /* PTHREAD_H */
+#endif /* VERSION_1_2 */
+
+
+/*
+ Function:     prey_array_num(int num)
+ Description:  adjust num
+ */
+int prey_array_num(int num){
+  //存在しない座標を指定しないように0未満なら0、7より大きいなら7を返す
+  if(num<0)num=0;
+  if(num>7)num=7;
+  return num;
+}
+
+/*
+ Function:     prey_map(int prey_copy_array[8][8])
+ Description:  print predator_copy_array.
+主にprey_copy_arrayの中身の確認用なので、使用しなくてよい
+ */
+void prey_map(int prey_copy_array[8][8]){
+  int prey_i,prey_j;
+   printf("prey_map\n");
+   for(prey_i=0;prey_i<8;prey_i++){
+     for(prey_j=0;prey_j<8;prey_j++){
+       //"%3dで全体の形を整えて出力する
+     printf("%3d",prey_copy_array[prey_i][prey_j]);
+     if(prey_j==7)printf("\n");
+     }
+   }
+}
+/*
+battlefieldが
+.:free grid
+#:obstacle
+@:predator
+*:prey
+
+.......#
+#######.
+......#.
+......#.
+..#@..#.
+..#####.
+#.*.....
+...#....
+場合
+
+何も変更していない時
+ 0:free grid
+-1:obstacle
+ 1:predator
+10:preyer  
+
+  0  0  0  0  0  0  0 -1
+ -1 -1 -1 -1 -1 -1 -1  0
+  0  0  0  0  0  0 -1  0
+  0  0  0  0  0  0 -1  0
+  0  0 -1  1  0  0 -1  0
+  0  0 -1 -1 -1 -1 -1  0
+ -1  0 10  0  0  0  0  0
+  0  0  0 -1  0  0  0  0
+
+prey_moveMap後
+1~64:free grid
+  99:obstacle 
+ 100:移動不可能
+
+100100100100100100100 99
+ 99 99 99 99 99 99 99 17
+  5  4  3  2  3  4 99 16
+  4  3  2  1  2  3 99 15
+  5  4 99  1  1  2 99 14
+  6  5 99 99 99 99 99 13
+ 99  6  7  8  9 10 11 12
+  8  7  8 99 10 11 12 13
+になる
+
+prey_road後
+1~64:free grid
+  99:obstacle 
+ 100:移動不可能
+   x:preyのと経路の座標の値。predatorの最低移動数でもっとも大きい値　今回は17
+
+100100100100100100100 99
+ 99 99 99 99 99 99 99 17
+  5  4  3  2  3  4 99 17
+  4  3  2  1  2  3 99 17
+  5  4 99  1  1  2 99 17
+  6  5 99 99 99 99 99 17
+ 99  6 17 17 17 17 17 17
+  8  7  8 99 10 11 12 13
+になる
+ */
+
+/*
+ Function:     prey_moveMap(int prey_a,int prey_b,int prey_num, int prey_copy_array[8][8])
+ Description:  create map for search route
+ */
+void prey_moveMap(int prey_a,int prey_b,int prey_num, int prey_copy_array[8][8]){
+  //prey_a, prey_bは格子世界上の座標を表す
+  //最初に呼び出すときはpredatorの座標を入れる
+ int prey_i,prey_j;
+ //prey_a, prey_bの周りの座標について
+ for(prey_i=-1;prey_i<=1;prey_i++){
+   for(prey_j=-1;prey_j<=1;prey_j++){
+     //斜め以外の時
+       if(prey_i*prey_j==0){
+	 //存在しない座標を指定しないように0未満なら0、7より大きいなら7に直す
+       int prey_array_i=prey_array_num(prey_i+prey_a);
+       int prey_array_j=prey_array_num(prey_j+prey_b);
+       if(prey_copy_array[prey_array_i][prey_array_j]!=99){
+	 //上下左右の座標が引数の座標より大きいとき、その座標は一度も参照されていないか、一度呼ばれたけど移動数が大きかったもの
+	   if(prey_copy_array[prey_array_i][prey_array_j]>prey_num){
+	     //上下左右の座標の移動数を記録する
+	     prey_copy_array[prey_array_i][prey_array_j]=prey_num+1;
+	     //再帰することで、上下左右の座標の周りの移動数を変化させていく
+	     prey_moveMap(prey_array_i,prey_array_j,prey_num+1,prey_copy_array);
+	   }
+	 }
+       }
+   }
+ }
+}
+
+/*
+ Function:     prey_road(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8])
+ Description:  search and create route
+ */
+void prey_road(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8]){
+int prey_i,prey_j;
+ //第一・第二引数の周りの座標
+ for(prey_i=-1;prey_i<=1;prey_i++){
+   for(prey_j=-1;prey_j<=1;prey_j++){
+     //斜め以外のとき
+       if(prey_i*prey_j==0){
+       //存在しない座標を指定しないように0未満なら0、7より大きいなら7に直す
+       int prey_array_i=prey_array_num(prey_i+prey_pos_c);
+       int prey_array_j=prey_array_num(prey_j+prey_pos_d);
+       //障害物以外の時
+       if(prey_copy_array[prey_array_i][prey_array_j]!=99){
+	 //ルートを進む上で、後ろに戻らない
+	   if(prey_copy_array[prey_array_i][prey_array_j]>
+	      prey_copy_array[prey_pos_c][prey_pos_d]){
+	     //先に再帰をすることで、predatorの最低移動数がもっとも多い座標からpreyの座標の順番で処理を行える
+	     prey_road(prey_array_i,prey_array_j,prey_copy_array);
+	     //predatorの最低移動数がもっとも多い値を引数の座標に代入することで、その値で経路を作る
+	     prey_copy_array[prey_pos_c][prey_pos_d]=prey_copy_array[prey_array_i][prey_array_j];
+	   }
+	 }
+       }
+   }
+ }
+}
+
+/*
+ Function:     prey_move(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8])
+ Description:  choose prey movement
+ */
+int prey_move(int prey_pos_c,int prey_pos_d, int prey_copy_array[8][8]){
+int prey_i,prey_j;
+ //第一・第二引数の周りの座標
+ for(prey_i=-1;prey_i<=1;prey_i++){
+   for(prey_j=-1;prey_j<=1;prey_j++){
+     //斜め以外の時
+       if(prey_i*prey_j==0){
+       //存在しない座標を指定しないように0未満なら0、7より大きいなら7に直す
+       int prey_array_i=prey_array_num(prey_i+prey_pos_c);
+       int prey_array_j=prey_array_num(prey_j+prey_pos_d);
+       //preyの値と上下左右の値が同じ時(作成した経路の方向である時)、その方向に移動する
+	   if(prey_copy_array[prey_array_i][prey_array_j]==
+	      prey_copy_array[prey_pos_c][prey_pos_d]
+	      &&prey_array_i-prey_pos_c
+	       +prey_array_j-prey_pos_d!=0){
+	     if(prey_i>0)
+	       return 'd';
+	     if(prey_i<0)
+	       return 'u';	     
+	     if(prey_j>0)
+	       return 'r';	     
+	     if(prey_j<0)
+	       return 'l';	     
+	   }
+	 }
+   }
+ }
+ return 's';
+}
+
+/*
+ Function:     Prey(int prey_copy_array[8][8], int *preyAction)
+ Description:  get the posithion and call various functuion
+ */
+void Prey(int prey_copy_array[8][8], int *preyAction){
+  int prey_i,prey_j;
+  int prey_pos_a,prey_pos_b,prey_pos_c,prey_pos_d;
+  //predatorとpreyの座標を取得し保存する
+  //また、全ての座彪の値に100を加算し、prey_moveMap関数で大小関係を比較しやすくする
+ for(prey_i=0;prey_i<8;prey_i++){
+   for(prey_j=0;prey_j<8;prey_j++){
+     if(prey_copy_array[prey_i][prey_j]==1){//Predator
+       prey_pos_a=prey_i;
+       prey_pos_b=prey_j;
+     }
+     if(prey_copy_array[prey_i][prey_j]==10){//Prey
+       prey_pos_c=prey_i;
+       prey_pos_d=prey_j;
+     }
+     //全ての座彪の値に100を加算し、predator_moveMap関数で大小関係を比較しやすくする
+        prey_copy_array[prey_i][prey_j]=prey_copy_array[prey_i][prey_j]+100;
+     }
+   }
+ //preyから進める各座標の最低移動数を記録する
+ prey_moveMap(prey_pos_a,prey_pos_b,0,prey_copy_array);
+ //作成した最低移動数のマップを確認する関数なため、なくてもよい
+ //prey_map(prey_copy_array);
+ //最低移動数のマップを用いて経路を探し、記録する
+ prey_road(prey_pos_c,prey_pos_d,prey_copy_array);
+ //作成した移動経路を確認する関数なため、なくてもよい
+ //prey_map(prey_copy_array);
+ //移動経路を参照し、次に行動するべき値を代入する
+ *preyAction=prey_move(prey_pos_c,prey_pos_d,prey_copy_array);
+}
